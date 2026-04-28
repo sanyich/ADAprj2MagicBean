@@ -5,18 +5,16 @@ import java.util.Queue;
 import java.util.PriorityQueue;
 
 public class Solver {
-    private int R;
-    private int C;
-    private int N;
-    private int L;
-    private int B;
-    private int[][] grid;
-    private MagicBeams[] beams;
-    private Set<Integer> needed = new HashSet<>();
+    private final int R, C, N, L, B;
+    private final int[][] grid;
+    private final MagicBeams[] beams;
+
+    private final Set<Integer> needed = new HashSet<>();
     private Set<Integer>[] graph;
-    private int[] indegree;
-    private final String FA = "False alarm";
-    private final String D = "Disaster";
+    private final int[] indegree;
+
+    private static final String FA = "False alarm";
+    private static final String D = "Disaster";
 
     public Solver(int nR, int nC, int n, int nL, int b, MagicBeams[] beams) {
         this.R = nR;
@@ -25,25 +23,36 @@ public class Solver {
         this.L = nL;
         this.B = b;
         this.beams = beams;
-
-        grid = new int[R][C];
+        this.grid = new int[R][C];
+        this.indegree = new int[B + 1];
 
         putBeamsInGrid();
+        createGraph();
+    }
 
-        graph = new HashSet[B + 1];
-        indegree = new int[B + 1];
-
+    @SuppressWarnings("unchecked")
+    private void createGraph() {
+        graph = new Set[B + 1];
         for (int i = 1; i <= B; i++) {
             graph[i] = new HashSet<>();
         }
     }
 
-    private int[] direction(char dir) {
-        if (dir == 'N') return new int[]{-1, 0};
-        if (dir == 'S') return new int[]{1, 0};
-        if (dir == 'E') return new int[]{0, 1};
-        return new int[]{0, -1}; // W
+    private int getDr(char dir) {
+        return switch (dir) {
+            case 'N' -> -1;
+            case 'S' -> 1;
+            default -> 0;
+        };
     }
+    private int getDc(char dir) {
+        return switch (dir) {
+            case 'E' -> 1;
+            case 'W' -> -1;
+            default -> 0;
+        };
+    }
+
 
     private void putBeamsInGrid() {
         for (int id = 1; id <= B; id++) {
@@ -52,9 +61,8 @@ public class Solver {
             int r = beam.getR();
             int c = beam.getC();
 
-            int[] move = direction(beam.getDir());
-            int dr = move[0];
-            int dc = move[1];
+            int dr = getDr(beam.getDir());
+            int dc = getDc(beam.getDir());
 
             for (int k = 0; k < beam.getL(); k++) {
                 grid[r][c] = id;
@@ -86,9 +94,8 @@ public class Solver {
             MagicBeams beam = beams[currentId];
             int r = beam.getR();
             int c = beam.getC();
-            int[] move = direction(beam.getDir());
-            int dr = move[0];
-            int dc = move[1];
+            int dr = getDr(beam.getDir());
+            int dc = getDc(beam.getDir());
 
             // cell after the last cell of beam
             r = r + dr * beam.getL();
@@ -104,13 +111,11 @@ public class Solver {
                         graph[blockerId].add(currentId);
                         indegree[currentId]++;
                     }
-
                     // blocker also becomes needed
                     if (!needed.contains(blockerId)) {
                         needed.add(blockerId);
                         queue.add(blockerId);
                     }
-                    break;
                 }
                 r += dr;
                 c += dc;
@@ -154,7 +159,6 @@ public class Solver {
         findBeams();
         if (needed.isEmpty()) return FA;
         buildGraph();
-
         return topologicalSort();
     }
 }

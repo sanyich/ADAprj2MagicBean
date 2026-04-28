@@ -16,7 +16,7 @@ class Main {
             int B = Integer.parseInt(in.readLine()); //n of magic beams
             MagicBeams[] beams = new MagicBeams[B+1];
             for (int id = 1; id <= B; id++) {
-                String[] parts =  in.readLine().trim().split(" ");;
+                String[] parts =  in.readLine().trim().split(" ");
                 int r = Integer.parseInt(parts[0]);
                 int c = Integer.parseInt(parts[1]);
                 int l = Integer.parseInt(parts[2]);
