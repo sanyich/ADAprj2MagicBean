@@ -1,51 +1,46 @@
-import java.util.Set;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.PriorityQueue;
+import java.util.*;
 
 public class Solver {
-    private final int R, C, N, L, B;
+    private final int nRows;
+    private final int nColumns;
+    private final int nCorridorColumns;
+    private final int leftmostColumn;
+    private final int nBeams;
     private final int[][] grid;
-    private final MagicBeams[] beams;
+    private final Set<Integer> neededToFree = new HashSet<>();
+    private final List<Integer>[] graph;
+    private final Beam[] beams;
+    private final int[] inDegree;
+    private final String FA = "False alarm";
+    private final String D = "Disaster";
 
-    private final Set<Integer> needed = new HashSet<>();
-    private Set<Integer>[] graph;
-    private final int[] indegree;
+    public Solver(int nRows, int nColumns, int nCorridorColumns, int leftmostColumn, int nBeams) {
+        this.nRows = nRows;
+        this.nColumns = nColumns;
+        this.nCorridorColumns = nCorridorColumns;
+        this.leftmostColumn = leftmostColumn;
+        this.nBeams = nBeams;
+        this.beams = new Beam[nBeams + 1];
 
-    private static final String FA = "False alarm";
-    private static final String D = "Disaster";
+        grid = new int[nRows][nColumns];
+        graph = new List[nBeams + 1];
+        inDegree = new int[nBeams + 1];
 
-    public Solver(int nR, int nC, int n, int nL, int b, MagicBeams[] beams) {
-        this.R = nR;
-        this.C = nC;
-        this.N = n;
-        this.L = nL;
-        this.B = b;
-        this.beams = beams;
-        this.grid = new int[R][C];
-        this.indegree = new int[B + 1];
-
-        putBeamsInGrid();
-        createGraph();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void createGraph() {
-        graph = new Set[B + 1];
-        for (int i = 1; i <= B; i++) {
-            graph[i] = new HashSet<>();
+        // initializeTheGraph function
+        for (int i = 1; i <= nBeams; i++) {
+            graph[i] = new LinkedList<>();
         }
     }
 
-    private int getDr(char dir) {
+    private int getDRow(char dir) {
         return switch (dir) {
             case 'N' -> -1;
             case 'S' -> 1;
             default -> 0;
         };
     }
-    private int getDc(char dir) {
+
+    private int getDColumn(char dir) {
         return switch (dir) {
             case 'E' -> 1;
             case 'W' -> -1;
@@ -53,80 +48,71 @@ public class Solver {
         };
     }
 
-
-    private void putBeamsInGrid() {
-        for (int id = 1; id <= B; id++) {
-            MagicBeams beam = beams[id];
-
-            int r = beam.getR();
-            int c = beam.getC();
-
-            int dr = getDr(beam.getDir());
-            int dc = getDc(beam.getDir());
-
-            for (int k = 0; k < beam.getL(); k++) {
-                grid[r][c] = id;
-                r += dr;
-                c += dc;
-            }
+    public void addBeam(int id, int row, int column, int length, char dir) {
+        int dRow = getDRow(dir);
+        int dColumn = getDColumn(dir);
+        for (int i = 0; i < length; i++) {
+            grid[row + dRow * i][column + dColumn * i] = id;
         }
+        beams[id] = new Beam(id, row, column, length, dir);
     }
 
     private void findBeams() {
-        for (int r = 0; r < R; r++) {
-            for (int c = L; c < L + N; c++) {
+        for (int r = 0; r < nRows; r++) {
+            int rightmostColumn = leftmostColumn + nCorridorColumns;
+            for (int c = leftmostColumn; c < rightmostColumn; c++) {
                 if (grid[r][c] != 0) {
-                    needed.add(grid[r][c]);
+                    neededToFree.add(grid[r][c]);
                 }
             }
         }
     }
 
     private void buildGraph() {
-        Queue<Integer> queue = new LinkedList<>(needed);
-        Set<Integer> processed = new HashSet<>();
+        Queue<Integer> queue = new LinkedList<>(neededToFree);
+        boolean[] processed = new boolean[nBeams + 1];
         while (!queue.isEmpty()) {
-            int currentId = queue.poll();
-            if (processed.contains(currentId)) {
+            int beamId = queue.poll();
+            if (processed[beamId]) {
                 continue;
             }
-            processed.add(currentId);
-            MagicBeams beam = beams[currentId];
-            int r = beam.getR();
-            int c = beam.getC();
-            int dr = getDr(beam.getDir());
-            int dc = getDc(beam.getDir());
+            processed[beamId] = true;
+            Beam beam = beams[beamId];
+            findBlockers(beam, queue);
+        }
+    }
 
-            // cell after the last cell of beam
-            r = r + dr * beam.getL();
-            c = c + dc * beam.getL();
+    private void findBlockers(Beam beam, Queue<Integer> queue) {
+        int beamId = beam.getId();
+        int dR = getDRow(beam.getDir());
+        int dC = getDColumn(beam.getDir());
 
-            // scan forward until the end of grid
-            while (r >= 0 && r < R && c >= 0 && c < C) {
-                int blockerId = grid[r][c];
+        int r = beam.getRow() + dR * beam.getLength();
+        int c = beam.getColumn() + dC * beam.getLength();
 
-                if (blockerId != 0 && blockerId != currentId) {
-                    // blocker must be removed before current beam
-                    if (!graph[blockerId].contains(currentId)) {
-                        graph[blockerId].add(currentId);
-                        indegree[currentId]++;
-                    }
-                    // blocker also becomes needed
-                    if (!needed.contains(blockerId)) {
-                        needed.add(blockerId);
-                        queue.add(blockerId);
-                    }
+        while (r >= 0 && r < nRows && c >= 0 && c < nColumns) {
+            int blockerId = grid[r][c];
+
+            if (blockerId != 0 && blockerId != beamId) {
+                if (!graph[blockerId].contains(beamId)) {
+                    graph[blockerId].add(beamId);
+                    inDegree[beamId]++;
                 }
-                r += dr;
-                c += dc;
+
+                if (neededToFree.add(blockerId)) {
+                    queue.add(blockerId);
+                }
             }
+
+            r += dR;
+            c += dC;
         }
     }
 
     private String topologicalSort() {
         PriorityQueue<Integer> pq = new PriorityQueue<>();
-        for (int id : needed) {
-            if (indegree[id] == 0) {
+        for (int id : neededToFree) {
+            if (inDegree[id] == 0) {
                 pq.add(id);
             }
         }
@@ -142,14 +128,14 @@ public class Solver {
 
             // current beam is removed, so it unlocks beams after it
             for (int next : graph[current]) {
-                indegree[next]--;
+                inDegree[next]--;
 
-                if (indegree[next] == 0) {
+                if (inDegree[next] == 0) {
                     pq.add(next);
                 }
             }
         }
-        if (removedCount != needed.size()) {
+        if (removedCount != neededToFree.size()) {
             return D;
         }
         return result.toString();
@@ -157,8 +143,9 @@ public class Solver {
 
     public String solve() {
         findBeams();
-        if (needed.isEmpty()) return FA;
+        if (neededToFree.isEmpty()) return FA;
         buildGraph();
+
         return topologicalSort();
     }
 }
