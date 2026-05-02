@@ -7,7 +7,8 @@ public class Solver {
     private final int leftmostColumn;
     private final int nBeams;
     private final int[][] grid;
-    private final Set<Integer> neededToFree = new HashSet<>();
+    private final boolean[] neededToFree;
+    private int neededCount;
     private final List<Integer>[] graph;
     private final Beam[] beams;
     private final int[] inDegree;
@@ -21,6 +22,8 @@ public class Solver {
         this.leftmostColumn = leftmostColumn;
         this.nBeams = nBeams;
         this.beams = new Beam[nBeams + 1];
+        this.neededToFree = new boolean[nBeams + 1];
+        neededCount = 0;
 
         grid = new int[nRows][nColumns];
         graph = new List[nBeams + 1];
@@ -61,15 +64,23 @@ public class Solver {
         for (int r = 0; r < nRows; r++) {
             int rightmostColumn = leftmostColumn + nCorridorColumns;
             for (int c = leftmostColumn; c < rightmostColumn; c++) {
-                if (grid[r][c] != 0) {
-                    neededToFree.add(grid[r][c]);
+                int beamId = grid[r][c];
+
+                if (beamId != 0 && !neededToFree[beamId]){
+                    neededToFree[beamId] = true;
+                    neededCount++;
                 }
             }
         }
     }
 
     private void buildGraph() {
-        Queue<Integer> queue = new LinkedList<>(neededToFree);
+        Queue<Integer> queue = new ArrayDeque<>();
+        for (int i = 1; i < neededToFree.length; i++) {
+            if (neededToFree[i]) {
+                queue.add(i);
+            }
+        }
         boolean[] processed = new boolean[nBeams + 1];
         while (!queue.isEmpty()) {
             int beamId = queue.poll();
@@ -89,19 +100,21 @@ public class Solver {
 
         int r = beam.getRow() + dR * beam.getLength();
         int c = beam.getColumn() + dC * beam.getLength();
+        int lastBlocker = 0;
 
         while (r >= 0 && r < nRows && c >= 0 && c < nColumns) {
             int blockerId = grid[r][c];
 
-            if (blockerId != 0 && blockerId != beamId) {
-                if (!graph[blockerId].contains(beamId)) {
-                    graph[blockerId].add(beamId);
-                    inDegree[beamId]++;
-                }
+            if (blockerId != 0 && blockerId != beamId && lastBlocker != blockerId) {
+                graph[blockerId].add(beamId);
+                inDegree[beamId]++;
 
-                if (neededToFree.add(blockerId)) {
+                if (!neededToFree[blockerId]) {
                     queue.add(blockerId);
+                    neededToFree[blockerId] = true;
+                    neededCount++;
                 }
+                lastBlocker = blockerId;
             }
 
             r += dR;
@@ -111,9 +124,10 @@ public class Solver {
 
     private String topologicalSort() {
         PriorityQueue<Integer> pq = new PriorityQueue<>();
-        for (int id : neededToFree) {
-            if (inDegree[id] == 0) {
-                pq.add(id);
+        // повтор кода
+        for (int i = 1; i < neededToFree.length; i++) {
+            if (neededToFree[i] && inDegree[i] == 0) {
+                pq.add(i);
             }
         }
         StringBuilder result = new StringBuilder();
@@ -135,7 +149,7 @@ public class Solver {
                 }
             }
         }
-        if (removedCount != neededToFree.size()) {
+        if (removedCount != neededCount) {
             return D;
         }
         return result.toString();
@@ -143,7 +157,7 @@ public class Solver {
 
     public String solve() {
         findBeams();
-        if (neededToFree.isEmpty()) return FA;
+        if (neededCount == 0) return FA;
         buildGraph();
 
         return topologicalSort();
