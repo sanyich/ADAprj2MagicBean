@@ -6,11 +6,16 @@ public class Solver {
     private final int nCorridorColumns;
     private final int leftmostColumn;
     private final int nBeams;
-    private final int[][] grid;
+    private final short[][] grid;
     private final boolean[] neededToFree;
     private int neededCount;
     private final List<Integer>[] graph;
-    private final Beam[] beams;
+
+    // better than a separate object
+    private final int[] row;
+    private final int[] column;
+    private final int[] length;
+    private final char[] dir;
     private final int[] inDegree;
     private final String FA = "False alarm";
     private final String D = "Disaster";
@@ -21,17 +26,20 @@ public class Solver {
         this.nCorridorColumns = nCorridorColumns;
         this.leftmostColumn = leftmostColumn;
         this.nBeams = nBeams;
-        this.beams = new Beam[nBeams + 1];
+        this.row = new int[nBeams + 1];
+        this.column = new int[nBeams + 1];
+        this.length = new int[nBeams + 1];
+        this.dir = new char[nBeams + 1];
         this.neededToFree = new boolean[nBeams + 1];
         neededCount = 0;
 
-        grid = new int[nRows][nColumns];
+        grid = new short[nRows][nColumns];
         graph = new List[nBeams + 1];
         inDegree = new int[nBeams + 1];
 
         // initializeTheGraph function
         for (int i = 1; i <= nBeams; i++) {
-            graph[i] = new LinkedList<>();
+            graph[i] = new ArrayList<>(); // better than LinkedList
         }
     }
 
@@ -55,9 +63,13 @@ public class Solver {
         int dRow = getDRow(dir);
         int dColumn = getDColumn(dir);
         for (int i = 0; i < length; i++) {
-            grid[row + dRow * i][column + dColumn * i] = id;
+            grid[row + dRow * i][column + dColumn * i] = (short) id;
         }
-        beams[id] = new Beam(id, row, column, length, dir);
+        //beams[id] = new Beam(id, row, column, length, dir);
+        this.row[id] = row;
+        this.column[id] = column;
+        this.length[id] = length;
+        this.dir[id] = dir;
     }
 
     private void findBeams() {
@@ -88,18 +100,16 @@ public class Solver {
                 continue;
             }
             processed[beamId] = true;
-            Beam beam = beams[beamId];
-            findBlockers(beam, queue);
+            findBlockers(beamId, queue);
         }
     }
 
-    private void findBlockers(Beam beam, Queue<Integer> queue) {
-        int beamId = beam.getId();
-        int dR = getDRow(beam.getDir());
-        int dC = getDColumn(beam.getDir());
+    private void findBlockers(int beamId, Queue<Integer> queue) {
+        int dR = getDRow(dir[beamId]);
+        int dC = getDColumn(dir[beamId]);
 
-        int r = beam.getRow() + dR * beam.getLength();
-        int c = beam.getColumn() + dC * beam.getLength();
+        int r = row[beamId] + dR * length[beamId];
+        int c = column[beamId] + dC * length[beamId];
         int lastBlocker = 0;
 
         while (r >= 0 && r < nRows && c >= 0 && c < nColumns) {
