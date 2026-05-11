@@ -88,15 +88,15 @@ public class Solver {
         neededCount = 0;
 
         grid = new short[nRows][nColumns];
-        graph = createGraph(nBeams + 1);
+        graph = initializeGraph(nBeams + 1);
         inDegree = new int[nBeams + 1];
     }
 
     /**
-     * Creates an adjacency-list representation of the dependency graph.
+     * Initializes an adjacency-list representation of the dependency graph.
      */
     @SuppressWarnings("unchecked")
-    private List<Integer>[] createGraph(int size) {
+    private List<Integer>[] initializeGraph(int size) {
         List<Integer>[] result = new List[size];
 
         for (int i = 1; i < size; i++) {
