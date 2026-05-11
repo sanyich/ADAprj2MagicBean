@@ -6,7 +6,7 @@ import java.util.*;
  * If beam A blocks the path of beam B, then A must be freed before B,
  * so the graph contains the edge A -> B.
  * solver first finds all beams that occupy the chosen corridor.
- * Then it recursively adds every beam that blocks one of the needed beams.
+ * Then it iteratively adds every beam that blocks one of the needed beams.
  * Finally, it applies Kahn's topological sorting algorithm with a priority
  * queue, so that when several beams are available, the smallest identifier
  * is chosen first.
@@ -56,8 +56,9 @@ public class Solver {
     private final int[] inDegree;
 
     // constants
-    private final static String FALSE_ALARM = "False alarm";
-    private final static String DISASTER = "Disaster";
+    public final static int FALSE_ALARM = -1;
+    public final static int DISASTER = -2;
+
     private final static char NORTH = 'N';
     private final static char SOUTH = 'S';
     private final static char WEST = 'W';
@@ -94,13 +95,16 @@ public class Solver {
 
     /**
      * Initializes an adjacency-list representation of the dependency graph.
+     * -
+     * LinkedList is used because the number of outgoing edges of each beam
+     * is not known in advance.
      */
     @SuppressWarnings("unchecked")
     private List<Integer>[] initializeGraph(int size) {
         List<Integer>[] result = new List[size];
 
         for (int i = 1; i < size; i++) {
-            result[i] = new ArrayList<>(); //size if we know - linked list if not diff ds
+            result[i] = new LinkedList<>();
         }
 
         return result;
@@ -135,7 +139,6 @@ public class Solver {
         for (int i = 0; i < length; i++) {
             grid[row + dRow * i][column + dColumn * i] = (short) id;
         }
-        //beams[id] = new Beam(id, row, column, length, dir);
         this.row[id] = row;
         this.column[id] = column;
         this.length[id] = length;
@@ -166,7 +169,11 @@ public class Solver {
      */
     private void buildGraph() {
         Queue<Integer> queue = new ArrayDeque<>(neededCount);
-        fillQueue(queue);
+        for (int i = 1; i < neededToFree.length; i++) {
+            if (neededToFree[i]) {
+                queue.add(i);
+            }
+        }
         boolean[] processed = new boolean[nBeams + 1];
         while (!queue.isEmpty()) {
             int beamId = queue.poll();
@@ -175,14 +182,6 @@ public class Solver {
             }
             processed[beamId] = true;
             findBlockers(beamId, queue);
-        }
-    }
-
-    private void fillQueue(Queue<Integer> queue) {
-        for (int i = 1; i < neededToFree.length; i++) {
-            if (neededToFree[i]) {
-                queue.add(i);
-            }
         }
     }
 
@@ -225,35 +224,35 @@ public class Solver {
      * A priority queue is used instead of a normal queue because the problem
      * requires choosing the smallest available beam identifier.
      *
-     * @return "Disaster" if the dependency graph has a cycle; otherwise the
-     * freeing order as a space-separated string
+     * @return the freeing order, or null if the dependency graph has a cycle
      */
-    private String topologicalSort() {
-        PriorityQueue<Integer> pq = new PriorityQueue<>(neededCount);
-        fillQueue(pq);
-        StringBuilder result = new StringBuilder(neededCount * 6);
-        int removedCount = 0;
-        while (!pq.isEmpty()) {
-            int current = pq.poll();
-            if (!result.isEmpty()) {
-                result.append(" "); //to the main
+    private List<Integer> topologicalSort() {
+        Queue<Integer> ready = new PriorityQueue<>(neededCount);
+        for (int i = 1; i < neededToFree.length; i++) {
+            if (neededToFree[i] && inDegree[i] == 0) {
+                ready.add(i);
             }
-            result.append(current);
-            removedCount++;
+        }
+        List<Integer> order = new ArrayList<>(neededCount);
 
-            // current beam is removed, so it unlocks beams after it
+        while (!ready.isEmpty()) {
+            int current = ready.poll();
+            order.add(current);
+
             for (int next : graph[current]) {
                 inDegree[next]--;
 
                 if (inDegree[next] == 0) {
-                    pq.add(next);
+                    ready.add(next);
                 }
             }
         }
-        if (removedCount != neededCount) {
-            return DISASTER;
+
+        if (order.size() != neededCount) {
+            return null;
         }
-        return result.toString();
+
+        return order;
     }
 
     /**
@@ -272,11 +271,26 @@ public class Solver {
         return true;
     }
 
-    public String solve() {
+    /**
+     * Solves the current test case.
+     *
+     * @return iterator containing either a status code or the freeing order
+     */
+    public Iterator<Integer> solve() {
         findBeams();
-        if (neededCount == 0) return FALSE_ALARM;
+
+        if (neededCount == 0) {
+            return Collections.singletonList(FALSE_ALARM).iterator();
+        }
+
         buildGraph();
 
-        return topologicalSort();
+        List<Integer> permutation = topologicalSort();
+
+        if (permutation == null) {
+            return Collections.singletonList(DISASTER).iterator();
+        }
+
+        return permutation.iterator();
     }
 }

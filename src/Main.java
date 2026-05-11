@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Iterator;
 
 /**
  * Entry point of the program
@@ -12,6 +13,9 @@ import java.io.InputStreamReader;
  * @author Oleksandra Kozlova 68739
  */
 class Main {
+    private static final String FALSE_ALARM_OUTPUT = "False alarm";
+    private static final String DISASTER_OUTPUT = "Disaster";
+
     public static void main(String[] args) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 
@@ -44,7 +48,41 @@ class Main {
 
                 solver.addBeam(id, row, column, length, dir);
             }
-            System.out.println(solver.solve());
+            // capacity for either a status message or a full list of beam ids.
+            int stringCapacity = Math.max(FALSE_ALARM_OUTPUT.length(), nBeams * 6);
+            StringBuilder output = new StringBuilder(stringCapacity);
+            appendAnswer(solver.solve(), output);
+            System.out.println(output);
+        }
+    }
+
+
+    /**
+     * Appends one test case answer to the given output builder.
+     * -
+     * The iterator contains either:
+     * - Solver.FALSE_ALARM;
+     * - Solver.DISASTER;
+     * - or the sequence of beam identifiers to free.
+     */
+    private static void appendAnswer(Iterator<Integer> answer, StringBuilder output) {
+        int first = answer.next();
+
+        if (first == Solver.FALSE_ALARM) {
+            output.append(FALSE_ALARM_OUTPUT);
+            return;
+        }
+
+        if (first == Solver.DISASTER) {
+            output.append(DISASTER_OUTPUT);
+            return;
+        }
+
+        output.append(first);
+
+        while (answer.hasNext()) {
+            output.append(' ');
+            output.append(answer.next());
         }
     }
 }
