@@ -100,7 +100,7 @@ public class Solver {
         List<Integer>[] result = new List[size];
 
         for (int i = 1; i < size; i++) {
-            result[i] = new ArrayList<>();
+            result[i] = new ArrayList<>(); //size if we know - linked list if not diff ds
         }
 
         return result;
@@ -166,11 +166,7 @@ public class Solver {
      */
     private void buildGraph() {
         Queue<Integer> queue = new ArrayDeque<>(neededCount);
-        for (int i = 1; i < neededToFree.length; i++) {
-            if (neededToFree[i]) {
-                queue.add(i);
-            }
-        }
+        fillQueue(queue);
         boolean[] processed = new boolean[nBeams + 1];
         while (!queue.isEmpty()) {
             int beamId = queue.poll();
@@ -179,6 +175,14 @@ public class Solver {
             }
             processed[beamId] = true;
             findBlockers(beamId, queue);
+        }
+    }
+
+    private void fillQueue(Queue<Integer> queue) {
+        for (int i = 1; i < neededToFree.length; i++) {
+            if (neededToFree[i]) {
+                queue.add(i);
+            }
         }
     }
 
@@ -226,18 +230,13 @@ public class Solver {
      */
     private String topologicalSort() {
         PriorityQueue<Integer> pq = new PriorityQueue<>(neededCount);
-        // повтор кода
-        for (int i = 1; i < neededToFree.length; i++) {
-            if (neededToFree[i] && inDegree[i] == 0) {
-                pq.add(i);
-            }
-        }
+        fillQueue(pq);
         StringBuilder result = new StringBuilder(neededCount * 6);
         int removedCount = 0;
         while (!pq.isEmpty()) {
             int current = pq.poll();
             if (!result.isEmpty()) {
-                result.append(" ");
+                result.append(" "); //to the main
             }
             result.append(current);
             removedCount++;
